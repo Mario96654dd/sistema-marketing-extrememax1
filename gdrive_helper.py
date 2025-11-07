@@ -24,7 +24,14 @@ def _get_credentials():
     if not info_raw:
         raise RuntimeError("No se encontró 'service_account_json' en los secrets de Streamlit.")
     if isinstance(info_raw, str):
-        info = json.loads(info_raw)
+        try:
+            info = json.loads(info_raw)
+        except json.JSONDecodeError:
+            try:
+                info = json.loads(info_raw, strict=False)
+            except json.JSONDecodeError:
+                sanitized = info_raw.replace("\r", "\\r").replace("\n", "\\n")
+                info = json.loads(sanitized)
     else:
         info = info_raw
     credentials = service_account.Credentials.from_service_account_info(
