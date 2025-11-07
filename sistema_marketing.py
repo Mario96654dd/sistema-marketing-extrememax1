@@ -917,6 +917,14 @@ def es_fecha(valor):
                 pass
     return False
 
+
+def es_url(valor):
+    """Determinar si una cadena apunta a una URL remota."""
+    if not valor:
+        return False
+    valor_str = str(valor).strip().lower()
+    return valor_str.startswith("http://") or valor_str.startswith("https://")
+
 @st.cache_data(ttl=60)  # Cache por 60 segundos
 def leer_letreros():
     """Leer todos los letreros del Excel con caché"""
@@ -957,89 +965,63 @@ def leer_letreros():
     return letreros
 
 def guardar_fotos_percha(percha_id, fotos_uploaded):
-    """Guardar fotos de una percha (Cloudinary o sistema de archivos local)"""
+    """Guardar fotos de una percha utilizando Google Drive o disco local como respaldo."""
     try:
-        # Intentar usar Cloudinary primero
+        rutas_fotos = []
         try:
-            from cloudinary_helper import save_photo_percha_cloudinary
-            rutas_fotos = []
+            from gdrive_helper import save_photo_percha_drive
             for idx, foto in enumerate(fotos_uploaded):
-                result = save_photo_percha_cloudinary(f"{percha_id}_{idx}", foto)
+                result = save_photo_percha_drive(f"{percha_id}_{idx}", foto)
                 if result and result.get('url'):
                     rutas_fotos.append(result['url'])
-                else:
-                    # Si Cloudinary falla, usar sistema de archivos local
-                    raise Exception("Cloudinary no disponible")
             if rutas_fotos:
                 return rutas_fotos
-        except:
-            # Fallback a sistema de archivos local
-            pass
+        except Exception as e:
+            print(f"Google Drive no disponible para perchas: {e}")
         
-        # Sistema de archivos local (fallback)
         fotos_dir = EXCEL_PATH.parent / "fotos_perchas"
         fotos_dir.mkdir(exist_ok=True)
         
-        rutas_fotos = []
-        
         for idx, foto in enumerate(fotos_uploaded):
-            # Generar nombre único para la foto
             extension = foto.name.split('.')[-1] if '.' in foto.name else 'jpg'
             nombre_foto = f"percha_{percha_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{idx}.{extension}"
             ruta_foto = fotos_dir / nombre_foto
-            
-            # Guardar la foto
             with open(ruta_foto, "wb") as f:
                 f.write(foto.getbuffer())
-            
             rutas_fotos.append(str(ruta_foto))
-        
         return rutas_fotos
     except Exception as e:
-        print(f"Error al guardar fotos: {e}")
+        print(f"Error al guardar fotos de percha: {e}")
         return []
 
 def guardar_fotos_comercial(entrega_id, fotos_uploaded):
-    """Guardar fotos de una entrega comercial (Cloudinary o sistema de archivos local)"""
+    """Guardar fotos de una entrega comercial en Google Drive o local como respaldo."""
     try:
-        # Intentar usar Cloudinary primero
+        rutas_fotos = []
         try:
-            from cloudinary_helper import save_photo_comercial_cloudinary
-            rutas_fotos = []
+            from gdrive_helper import save_photo_comercial_drive
             for idx, foto in enumerate(fotos_uploaded):
-                result = save_photo_comercial_cloudinary(f"{entrega_id}_{idx}", foto)
+                result = save_photo_comercial_drive(f"{entrega_id}_{idx}", foto)
                 if result and result.get('url'):
                     rutas_fotos.append(result['url'])
-                else:
-                    # Si Cloudinary falla, usar sistema de archivos local
-                    raise Exception("Cloudinary no disponible")
             if rutas_fotos:
                 return rutas_fotos
-        except:
-            # Fallback a sistema de archivos local
-            pass
+        except Exception as e:
+            print(f"Google Drive no disponible para comerciales: {e}")
         
-        # Sistema de archivos local (fallback)
         fotos_dir = EXCEL_PATH.parent / "fotos_comerciales"
         fotos_dir.mkdir(exist_ok=True)
         
-        rutas_fotos = []
-        
         for idx, foto in enumerate(fotos_uploaded):
-            # Generar nombre único para la foto
             extension = foto.name.split('.')[-1] if '.' in foto.name else 'jpg'
             nombre_foto = f"comercial_{entrega_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{idx}.{extension}"
             ruta_foto = fotos_dir / nombre_foto
-            
-            # Guardar la foto
             with open(ruta_foto, "wb") as f:
                 f.write(foto.getbuffer())
-            
             rutas_fotos.append(str(ruta_foto))
-        
         return rutas_fotos
     except Exception as e:
-        print(f"Error al guardar fotos: {e}")
+        print(f"Error al guardar fotos comerciales: {e}")
         return []
 
 def actualizar_fotos_comercial(entrega_id, nuevas_rutas_fotos):
@@ -2235,15 +2217,14 @@ def generar_pdf_autorizacion_evento(evento):
         # Construir el PDF
         doc.build(elements)
         
-        # Intentar subir a Cloudinary
+        # Intentar subir a Google Drive
         try:
-            from cloudinary_helper import save_pdf_evento_cloudinary
-            cloudinary_result = save_pdf_evento_cloudinary(nombre_archivo, evento['ID'], evento['Cliente'])
-            if cloudinary_result and cloudinary_result.get('url'):
-                # Retornar URL de Cloudinary en lugar de ruta local
-                return cloudinary_result['url']
+            from gdrive_helper import save_pdf_evento_drive
+            drive_result = save_pdf_evento_drive(nombre_archivo, evento['ID'], evento['Cliente'])
+            if drive_result and drive_result.get('url'):
+                return drive_result['url']
         except Exception as e:
-            print(f"Cloudinary no disponible, usando archivo local: {e}")
+            print(f"Google Drive no disponible para PDF de evento: {e}")
         
         return nombre_archivo
     except Exception as e:
@@ -2394,15 +2375,14 @@ def generar_pdf_autorizacion(letrero):
         # Construir el PDF
         doc.build(elements)
         
-        # Intentar subir a Cloudinary
+        # Intentar subir a Google Drive
         try:
-            from cloudinary_helper import save_pdf_letrero_cloudinary
-            cloudinary_result = save_pdf_letrero_cloudinary(nombre_archivo, letrero['ID'], letrero['Cliente'])
-            if cloudinary_result and cloudinary_result.get('url'):
-                # Retornar URL de Cloudinary en lugar de ruta local
-                return cloudinary_result['url']
+            from gdrive_helper import save_pdf_letrero_drive
+            drive_result = save_pdf_letrero_drive(nombre_archivo, letrero['ID'], letrero['Cliente'])
+            if drive_result and drive_result.get('url'):
+                return drive_result['url']
         except Exception as e:
-            print(f"Cloudinary no disponible, usando archivo local: {e}")
+            print(f"Google Drive no disponible para PDF de letrero: {e}")
         
         return nombre_archivo
     except Exception as e:
@@ -4005,17 +3985,17 @@ elif selected_menu == "📋 GESTION LETREROS":
                                 else:
                                     extension = '.jpg'
                                 
-                                # Intentar guardar en Cloudinary primero
+                                # Intentar guardar en Google Drive primero
                                 foto_url = None
                                 try:
-                                    from cloudinary_helper import save_photo_letrero_cloudinary
-                                    cloudinary_result = save_photo_letrero_cloudinary(letrero['ID'], foto_subida)
-                                    if cloudinary_result and cloudinary_result.get('url'):
-                                        foto_url = cloudinary_result['url']
-                                except:
-                                    pass
+                                    from gdrive_helper import save_photo_letrero_drive
+                                    drive_result = save_photo_letrero_drive(letrero['ID'], foto_subida)
+                                    if drive_result and drive_result.get('url'):
+                                        foto_url = drive_result['url']
+                                except Exception as e:
+                                    print(f"Google Drive no disponible para foto de letrero: {e}")
                                 
-                                # Si Cloudinary no está disponible, guardar localmente
+                                # Si Google Drive no está disponible, guardar localmente
                                 if not foto_url:
                                     nombre_foto = carpeta_cliente / f"Foto_Letrero_{letrero['ID']}{extension}"
                                     with open(nombre_foto, "wb") as f:
@@ -6618,16 +6598,19 @@ elif selected_menu == "📦 ENTREGA DE PERCHAS/EXHIBIDORES":
                         if num_columnas > 0:
                             cols_fotos = st.columns(num_columnas)
                             for idx, ruta_foto in enumerate(fotos_existentes):
-                                if Path(ruta_foto).exists():
-                                    col_idx = idx % num_columnas
-                                    with cols_fotos[col_idx]:
-                                        try:
+                                col_idx = idx % num_columnas
+                                with cols_fotos[col_idx]:
+                                    try:
+                                        if es_url(ruta_foto):
                                             st.image(ruta_foto, caption=f"Foto {idx + 1}", use_container_width=True)
-                                        except Exception as e:
-                                            st.error(f"Error al cargar foto: {e}")
-                                        # Si hay más de 3 fotos, crear nuevas filas
-                                        if (idx + 1) % num_columnas == 0 and (idx + 1) < num_fotos:
-                                            cols_fotos = st.columns(num_columnas)
+                                        elif Path(ruta_foto).exists():
+                                            st.image(str(ruta_foto), caption=f"Foto {idx + 1}", use_container_width=True)
+                                        else:
+                                            st.warning("No se encontró la foto almacenada")
+                                    except Exception as e:
+                                        st.error(f"Error al cargar foto: {e}")
+                                    if (idx + 1) % num_columnas == 0 and (idx + 1) < num_fotos:
+                                        cols_fotos = st.columns(num_columnas)
                     
                     # Formulario para subir nuevas fotos
                     with st.form(f"form_fotos_percha_{percha['ID']}", clear_on_submit=True):
@@ -8339,14 +8322,16 @@ elif selected_menu == "💼 ENTREGA A COMERCIALES":
                                     num_cols_fotos = min(3, len(fotos_lista))
                                     cols_fotos = st.columns(num_cols_fotos)
                                     for idx_foto, ruta_foto in enumerate(fotos_lista[:num_cols_fotos]):
-                                        if Path(ruta_foto).exists():
-                                            with cols_fotos[idx_foto % num_cols_fotos]:
-                                                try:
+                                        with cols_fotos[idx_foto % num_cols_fotos]:
+                                            try:
+                                                if es_url(ruta_foto):
                                                     st.image(ruta_foto, use_container_width=True)
-                                                except:
-                                                    st.caption("Error al cargar foto")
-                                        else:
-                                            pass
+                                                elif Path(ruta_foto).exists():
+                                                    st.image(str(ruta_foto), use_container_width=True)
+                                                else:
+                                                    st.caption("No se encontró la foto")
+                                            except Exception:
+                                                st.caption("Error al cargar foto")
                             
                             st.markdown("---")
         else:
@@ -9578,3 +9563,5 @@ st.markdown("""
     <p style='font-size: 0.85em; color: #FF9A00;'>Creador: Mario Ponce</p>
 </div>
 """, unsafe_allow_html=True)
+
+
